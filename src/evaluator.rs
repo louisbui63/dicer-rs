@@ -1,0 +1,509 @@
+use crate::parser::{Expr, Stmt};
+use std::collections::HashMap;
+
+use rand::prelude::*;
+
+#[derive(Clone, Debug)]
+pub enum EvArray {
+    F(f64),
+    A(Vec<EvArray>),
+}
+
+impl EvArray {
+    fn is_true(&self) -> bool {
+        if matches!(self, Self::F(f) if *f == 0.) {
+            false
+        } else {
+            true
+        }
+    }
+}
+
+impl std::fmt::Display for EvArray {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        if let Self::F(n) = self {
+            write!(f, "{}", n)
+        } else if let Self::A(a) = self {
+            let mut out = "[".to_owned();
+            for i in a {
+                out = format!("{}{},", out, i);
+            }
+            out.pop();
+            out.push(']');
+            write!(f, "{}", out)
+        } else {
+            unreachable!()
+        }
+    }
+}
+
+fn evaluate_expr(e: Expr, mem: &HashMap<char, EvArray>) -> Result<EvArray, String> {
+    match e {
+        Expr::Array(v) => {
+            let mut out = vec![];
+            for i in v.into_inner() {
+                out.push(evaluate_expr(i, mem)?);
+            }
+            return Ok(EvArray::A(out));
+        }
+        Expr::Val(v) => return Ok(EvArray::F(v)),
+        Expr::Var(v) => {
+            if mem.contains_key(&v) {
+                return Ok(mem.get(&v).unwrap().clone());
+            } else {
+                return Err(format!("Unknown variable '{}'", v));
+            }
+        }
+        Expr::Operation(first, op, second) => match op {
+            'd' => {
+                return Ok(dice_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            '+' => {
+                return Ok(plus_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            '-' => {
+                return Ok(minus_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            '*' => {
+                return Ok(times_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            '/' => {
+                return Ok(divide_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            '^' => {
+                return Ok(power_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            '<' => {
+                return Ok(less_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            '>' => {
+                return Ok(more_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            '=' => {
+                return Ok(equal_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            '|' => {
+                return Ok(or_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            '&' => {
+                return Ok(and_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            '@' => {
+                return Ok(at_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            'x' => return Ok(x_op(evaluate_expr(*first, mem)?, (*second, mem))?),
+
+            e => return Err(format!("Unknown operator '{}'", e)),
+        },
+        Expr::None => return Err("Unexpected parse artifact".to_owned()),
+    }
+}
+
+fn x_op(first: EvArray, second: (Expr, &HashMap<char, EvArray>)) -> Result<EvArray, String> {
+    match first {
+        EvArray::F(f) => {
+            let mut out = vec![];
+            for _ in 0..(f as usize) {
+                let s = evaluate_expr(second.0.clone(), second.1)?;
+                out.push(s)
+            }
+            Ok(EvArray::A(out))
+        }
+        EvArray::A(a) => {
+            let s = evaluate_expr(second.0, second.1)?;
+            if let EvArray::F(f) = s {
+                let mut out = vec![];
+                for _ in 0..(f as usize) {
+                    for i in a.clone() {
+                        out.push(i);
+                    }
+                }
+
+                Ok(EvArray::A(out))
+            } else {
+                Err(format!("Cannot infer duplication number from array"))
+            }
+        }
+    }
+}
+
+fn at_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    if let EvArray::F(f) = first {
+        if let EvArray::A(a) = second {
+            if f < 0. {
+                Err(format!("Impossible to index with a negative number"))
+            } else if f as usize >= a.len() {
+                Err(format!("Index larger than array length"))
+            } else {
+                Ok(a[f as usize].clone())
+            }
+        } else {
+            Err(format!("Impossible to index a float"))
+        }
+    } else {
+        Err(format!("Impossibe to index with an array"))
+    }
+}
+
+fn and_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    if let EvArray::F(f) = first {
+        if let EvArray::F(s) = second {
+            Ok(EvArray::F(if f != 0. && s != 0. { 1. } else { 0. }))
+        } else {
+            Err(format!("Logical operators cannot be used on arrays"))
+        }
+    } else {
+        Err(format!("Logical operators cannot be used on arrays"))
+    }
+}
+
+fn or_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    if let EvArray::F(f) = first {
+        if let EvArray::F(s) = second {
+            Ok(EvArray::F(if f != 0. || s != 0. { 1. } else { 0. }))
+        } else {
+            Err(format!("Logical operators cannot be used on arrays"))
+        }
+    } else {
+        Err(format!("Logical operators cannot be used on arrays"))
+    }
+}
+
+fn equal_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    match (first, second) {
+        (EvArray::A(_), EvArray::F(_)) | (EvArray::F(_), EvArray::A(_)) => Ok(EvArray::F(0.)),
+        (EvArray::F(f), EvArray::F(s)) => Ok(EvArray::F(if f == s { 1. } else { 0. })),
+        (EvArray::A(f), EvArray::A(s)) => {
+            if f.len() != s.len() {
+                return Ok(EvArray::F(0.));
+            }
+            let mut is_equal = true;
+            for i in 0..f.len() {
+                if let EvArray::F(a) = equal_op(f[i].clone(), s[i].clone())? {
+                    if a == 0. {
+                        is_equal = false;
+                        break;
+                    }
+                }
+            }
+            Ok(EvArray::F(if is_equal { 1. } else { 0. }))
+        }
+    }
+}
+
+fn more_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    if let EvArray::F(f) = first {
+        if let EvArray::F(s) = second {
+            Ok(EvArray::F(if f > s { 1. } else { 0. }))
+        } else {
+            Err(format!("Logical operators cannot be used on arrays"))
+        }
+    } else {
+        Err(format!("Logical operators cannot be used on arrays"))
+    }
+}
+
+fn less_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    if let EvArray::F(f) = first {
+        if let EvArray::F(s) = second {
+            Ok(EvArray::F(if f < s { 1. } else { 0. }))
+        } else {
+            Err(format!("Logical operators cannot be used on arrays"))
+        }
+    } else {
+        Err(format!("Logical operators cannot be used on arrays"))
+    }
+}
+
+fn power_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    match (first, second) {
+        (EvArray::F(f), EvArray::F(s)) => Ok(EvArray::F(f.powf(s))),
+        (EvArray::F(f), EvArray::A(a)) => {
+            let mut out = vec![];
+            for i in a {
+                out.push(power_op(EvArray::F(f), i)?);
+            }
+            Ok(EvArray::A(out))
+        }
+        (EvArray::A(a), EvArray::F(f)) => {
+            let mut out = vec![];
+            for i in a {
+                out.push(power_op(i, EvArray::F(f))?);
+            }
+            Ok(EvArray::A(out))
+        }
+        (EvArray::A(f), EvArray::A(s)) => {
+            if f.len() != s.len() {
+                return Err(format!(
+                    "Cannot use mathematical operators on differently sized arrays"
+                ));
+            }
+            let mut out = vec![];
+            for i in 0..f.len() {
+                out.push(power_op(f[i].clone(), s[i].clone())?);
+            }
+            Ok(EvArray::A(out))
+        }
+    }
+}
+
+fn divide_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    match (first, second) {
+        (EvArray::F(f), EvArray::F(s)) => {
+            if s == 0. {
+                Err(format!("Cannot divide by 0"))
+            } else {
+                Ok(EvArray::F(f / s))
+            }
+        }
+        (EvArray::F(f), EvArray::A(a)) => {
+            let mut out = vec![];
+            for i in a {
+                out.push(divide_op(EvArray::F(f), i)?);
+            }
+            Ok(EvArray::A(out))
+        }
+        (EvArray::A(a), EvArray::F(f)) => {
+            let mut out = vec![];
+            for i in a {
+                out.push(divide_op(i, EvArray::F(f))?);
+            }
+            Ok(EvArray::A(out))
+        }
+        (EvArray::A(f), EvArray::A(s)) => {
+            if f.len() != s.len() {
+                return Err(format!(
+                    "Cannot use mathematical operators on differently sized arrays"
+                ));
+            }
+            let mut out = vec![];
+            for i in 0..f.len() {
+                out.push(divide_op(f[i].clone(), s[i].clone())?);
+            }
+            Ok(EvArray::A(out))
+        }
+    }
+}
+
+fn times_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    match (first, second) {
+        (EvArray::F(f), EvArray::F(s)) => Ok(EvArray::F(f * s)),
+        (EvArray::F(f), EvArray::A(a)) => {
+            let mut out = vec![];
+            for i in a {
+                out.push(times_op(EvArray::F(f), i)?);
+            }
+            Ok(EvArray::A(out))
+        }
+        (EvArray::A(a), EvArray::F(f)) => {
+            let mut out = vec![];
+            for i in a {
+                out.push(times_op(i, EvArray::F(f))?);
+            }
+            Ok(EvArray::A(out))
+        }
+        (EvArray::A(f), EvArray::A(s)) => {
+            if f.len() != s.len() {
+                return Err(format!(
+                    "Cannot use mathematical operators on differently sized arrays"
+                ));
+            }
+            let mut out = vec![];
+            for i in 0..f.len() {
+                out.push(times_op(f[i].clone(), s[i].clone())?);
+            }
+            Ok(EvArray::A(out))
+        }
+    }
+}
+
+fn minus_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    match (first, second) {
+        (EvArray::F(f), EvArray::F(s)) => Ok(EvArray::F(f - s)),
+        (EvArray::F(f), EvArray::A(a)) => {
+            let mut out = vec![];
+            for i in a {
+                out.push(minus_op(EvArray::F(f), i)?);
+            }
+            Ok(EvArray::A(out))
+        }
+        (EvArray::A(a), EvArray::F(f)) => {
+            let mut out = vec![];
+            for i in a {
+                out.push(minus_op(i, EvArray::F(f))?);
+            }
+            Ok(EvArray::A(out))
+        }
+        (EvArray::A(f), EvArray::A(s)) => {
+            if f.len() != s.len() {
+                return Err(format!(
+                    "Cannot use mathematical operators on differently sized arrays"
+                ));
+            }
+            let mut out = vec![];
+            for i in 0..f.len() {
+                out.push(minus_op(f[i].clone(), s[i].clone())?);
+            }
+            Ok(EvArray::A(out))
+        }
+    }
+}
+
+fn plus_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    match (first, second) {
+        (EvArray::F(f), EvArray::F(s)) => Ok(EvArray::F(f + s)),
+        (EvArray::F(f), EvArray::A(a)) => {
+            let mut out = vec![];
+            for i in a {
+                out.push(plus_op(EvArray::F(f), i)?);
+            }
+            Ok(EvArray::A(out))
+        }
+        (EvArray::A(a), EvArray::F(f)) => {
+            let mut out = vec![];
+            for i in a {
+                out.push(plus_op(i, EvArray::F(f))?);
+            }
+            Ok(EvArray::A(out))
+        }
+        (EvArray::A(f), EvArray::A(s)) => {
+            if f.len() != s.len() {
+                return Err(format!(
+                    "Cannot use mathematical operators on differently sized arrays"
+                ));
+            }
+            let mut out = vec![];
+            for i in 0..f.len() {
+                out.push(plus_op(f[i].clone(), s[i].clone())?);
+            }
+            Ok(EvArray::A(out))
+        }
+    }
+}
+
+fn dice_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    match (first, second) {
+        (EvArray::F(f), EvArray::F(s)) => {
+            let mut rng = thread_rng();
+
+            let mut out = vec![];
+
+            for _ in 0..(f as usize) {
+                let n: usize = rng.gen_range(1..=(s as usize));
+                out.push(EvArray::F(n as f64));
+            }
+
+            Ok(EvArray::A(out))
+        }
+        (EvArray::F(f), EvArray::A(s)) => {
+            let mut rng = thread_rng();
+
+            let mut out = vec![];
+
+            for _ in 0..(f as usize) {
+                let n: usize = rng.gen_range(1..=s.len());
+                out.push(s[n].clone());
+            }
+
+            Ok(EvArray::A(out))
+        }
+        (EvArray::A(_), _) => Err(format!(
+            "Cannot infer the number of dice throws from an array"
+        )),
+    }
+}
+
+pub fn evaluate(t: &Vec<Stmt>, mem: &mut HashMap<char, EvArray>) -> Result<String, String> {
+    let mut out: String = String::new();
+
+    let mut i = 0;
+
+    while i < t.len() {
+        let c = t[i].clone();
+        match c {
+            Stmt::Bind(v, val) => {
+                mem.insert(v, evaluate_expr(val, &mem)?);
+            }
+            Stmt::Out(e) => {
+                let o = evaluate_expr(e, &mem)?;
+                out = format!("{}{}\n", out, o);
+            }
+            Stmt::Condition(e, Some(ife), el) => {
+                if evaluate_expr(e, &mem)?.is_true() {
+                    out = format!("{}{}", out, evaluate(&ife, mem)?);
+                } else if let Some(els) = el {
+                    out = format!("{}{}", out, evaluate(&els, mem)?);
+                }
+            }
+            Stmt::Condition(_, _, _) => {
+                return Err(format!("Error : malformed condition at index {}", i));
+            }
+            Stmt::While(e, Some(bod)) => {
+                while evaluate_expr(e.clone(), &mem)?.is_true() {
+                    out = format!("{}{}", out, evaluate(&bod, mem)?);
+                }
+            }
+            Stmt::While(_, _) => {
+                return Err(format!("Error : malformed while loop at index {}", i));
+            }
+            Stmt::For(Some(v), e, Some(bod)) => {
+                let es = evaluate_expr(e, mem)?;
+
+                if let EvArray::F(_) = es {
+                    mem.insert(v, es);
+                    out = format!("{}{}", out, evaluate(&bod, mem)?);
+                } else if let EvArray::A(a) = es {
+                    for i in a {
+                        mem.insert(v, i);
+                        out = format!("{}{}", out, evaluate(&bod, mem)?);
+                    }
+                }
+            }
+            Stmt::For(_, _, _) => {
+                return Err(format!("Error : malformed for loop at index {}", i));
+            }
+            Stmt::None => {
+                return Err(format!("Error : unexpected parser artifact at index {}", i));
+            }
+        }
+        i += 1;
+    }
+
+    return Ok(out);
+}
