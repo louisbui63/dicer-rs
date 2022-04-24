@@ -146,14 +146,16 @@ impl Array {
 
 fn is_operator(c: char) -> bool {
     return match c {
-        'd' | '+' | '-' | '*' | '/' | '^' | '<' | '>' | '=' | '|' | '&' | '@' | 'x' => true,
+        'd' | '+' | '-' | '*' | '/' | '^' | '<' | '>' | '=' | '|' | '&' | '@' | 'x' | 'l' | 'h' => {
+            true
+        }
         _ => false,
     };
 }
 
 fn get_precedence(c: char) -> usize {
     return match c {
-        'x' => 6,
+        'x' | 'l' | 'h' => 6,
         '+' | '-' => 5,
         '*' | '/' => 4,
         '^' => 3,

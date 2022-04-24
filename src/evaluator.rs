@@ -127,11 +127,94 @@ fn evaluate_expr(e: Expr, mem: &HashMap<char, EvArray>) -> Result<EvArray, Strin
                     evaluate_expr(*second, mem)?,
                 )?)
             }
+            'l' => {
+                return Ok(keeplow_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
+            'h' => {
+                return Ok(keephigh_op(
+                    evaluate_expr(*first, mem)?,
+                    evaluate_expr(*second, mem)?,
+                )?)
+            }
             'x' => return Ok(x_op(evaluate_expr(*first, mem)?, (*second, mem))?),
 
             e => return Err(format!("Unknown operator '{}'", e)),
         },
         Expr::None => return Err("Unexpected parse artifact".to_owned()),
+    }
+}
+
+fn keeplow_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    match (first, second) {
+        (EvArray::A(a), EvArray::F(f)) => {
+            if f < 0. {
+                return Err(format!("Float cannot be negative in call to operator 'l'"));
+            }
+            if f as usize >= a.len() {
+                return Err(format!(
+                    "Float is to large compared to array in call to operator 'l'"
+                ));
+            }
+            let mut flts = vec![];
+            for i in a {
+                if let EvArray::F(f) = i {
+                    flts.push(f);
+                } else {
+                    return Err(format!(
+                        "Array cannot include non floats in call to operator 'l'"
+                    ));
+                }
+            }
+            let mut out = vec![];
+
+            flts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            for i in flts[0..(f as usize)].iter() {
+                out.push(EvArray::F(*i));
+            }
+            Ok(EvArray::A(out))
+        }
+        _ => Err(format!(
+            "Operator 'l' only accepts <array>l<number> as operands"
+        )),
+    }
+}
+
+fn keephigh_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
+    match (first, second) {
+        (EvArray::A(a), EvArray::F(f)) => {
+            if f < 0. {
+                return Err(format!("Float cannot be negative in call to operator 'h'"));
+            }
+            if f as usize >= a.len() {
+                return Err(format!(
+                    "Float is to large compared to array in call to operator 'h'"
+                ));
+            }
+            let mut flts = vec![];
+            for i in a {
+                if let EvArray::F(f) = i {
+                    flts.push(f);
+                } else {
+                    return Err(format!(
+                        "Array cannot include non floats in call to operator 'h'"
+                    ));
+                }
+            }
+            let mut out = vec![];
+
+            flts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            flts.reverse();
+            for i in flts[0..(f as usize)].iter() {
+                out.push(EvArray::F(*i));
+            }
+            Ok(EvArray::A(out))
+        }
+        _ => Err(format!(
+            "Operator 'h' only accepts <array>l<number> as operands"
+        )),
     }
 }
 
