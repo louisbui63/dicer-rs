@@ -426,7 +426,11 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                 }
             }
             Token::Variable(v) => {
-                if let Stmt::None = current_stmt {
+                if matches!(current_stmt, Stmt::None)
+                    || matches!(current_stmt, Stmt::Condition(_, Some(_), _))
+                    || matches!(current_stmt, Stmt::While(_, Some(_)))
+                    || matches!(current_stmt, Stmt::For(_, _, Some(_)))
+                {
                     current_stmt = Stmt::Bind(v, Expr::None);
                 } else if let Stmt::Bind(u, expr) = current_stmt.clone() {
                     match expr.add_var(v) {
