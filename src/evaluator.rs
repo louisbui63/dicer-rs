@@ -28,7 +28,9 @@ impl std::fmt::Display for EvArray {
             for i in a {
                 out = format!("{}{},", out, i);
             }
-            out.pop();
+            if out.len() > 1 {
+                out.pop();
+            }
             out.push(']');
             write!(f, "{}", out)
         } else {
@@ -579,7 +581,6 @@ pub fn evaluate(t: &Vec<Stmt>, mem: &mut HashMap<char, EvArray>) -> Result<Strin
             }
             Stmt::Out(e) => {
                 let o = evaluate_expr(e, &mem)?;
-                eprintln!("{:?}", o);
                 out = format!("{}{}\n", out, o);
             }
             Stmt::Condition(e, Some(ife), el) => {
