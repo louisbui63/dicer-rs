@@ -66,7 +66,11 @@ impl Expr {
             Expr::Val(v) => Ok(Self::Operation(
                 Box::new(Self::Val(*v)),
                 o,
-                Box::new(Self::None),
+                if is_unary(o) {
+                    Box::new(Self::Val(0.))
+                } else {
+                    Box::new(Self::None)
+                },
             )),
             Expr::Operation(a, b, e) => {
                 if get_precedence(*b) > get_precedence(o) {
@@ -79,7 +83,11 @@ impl Expr {
                     Ok(Self::Operation(
                         Box::new(self.clone()),
                         o,
-                        Box::new(Self::None),
+                        if is_unary(o) {
+                            Box::new(Self::Val(0.))
+                        } else {
+                            Box::new(Self::None)
+                        },
                     ))
                 }
             }
@@ -87,12 +95,20 @@ impl Expr {
             Expr::Var(v) => Ok(Self::Operation(
                 Box::new(Self::Var(*v)),
                 o,
-                Box::new(Self::None),
+                if is_unary(o) {
+                    Box::new(Self::Val(0.))
+                } else {
+                    Box::new(Self::None)
+                },
             )),
             Expr::Array(a) => Ok(Self::Operation(
                 Box::new(Self::Array(a.clone())),
                 o,
-                Box::new(Self::None),
+                if is_unary(o) {
+                    Box::new(Self::Val(0.))
+                } else {
+                    Box::new(Self::None)
+                },
             )),
         }
     }
@@ -146,24 +162,32 @@ impl Array {
 
 fn is_operator(c: char) -> bool {
     return match c {
-        'd' | '+' | '-' | '*' | '/' | '^' | '<' | '>' | '=' | '|' | '&' | '@' | 'x' | 'l' | 'h' => {
-            true
-        }
+        'd' | '+' | '-' | '*' | '/' | '^' | '<' | '>' | '=' | '|' | '&' | '@' | 'x' | 'l' | 'h'
+        | '§' | 's' => true,
         _ => false,
     };
 }
 
 fn get_precedence(c: char) -> usize {
     return match c {
-        'x' | 'l' | 'h' => 6,
+        'x' => 8,
+        'l' | 'h' => 6,
         '+' | '-' => 5,
         '*' | '/' => 4,
         '^' => 3,
         '@' => 2,
         'd' => 1,
-        '<' | '>' => 7,
-        '=' => 8,
+        '<' | '>' => 9,
+        '=' => 10,
+        '§' | 's' => 7,
         _ => unreachable!(),
+    };
+}
+
+fn is_unary(c: char) -> bool {
+    return match c {
+        '§' | 's' => true,
+        _ => false,
     };
 }
 

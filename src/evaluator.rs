@@ -140,10 +140,44 @@ fn evaluate_expr(e: Expr, mem: &HashMap<char, EvArray>) -> Result<EvArray, Strin
                 )?)
             }
             'x' => return Ok(x_op(evaluate_expr(*first, mem)?, (*second, mem))?),
+            '§' => return Ok(flatten_op(evaluate_expr(*first, mem)?)?),
+            's' => return Ok(sum_op(evaluate_expr(*first, mem)?)?),
 
             e => return Err(format!("Unknown operator '{}'", e)),
         },
         Expr::None => return Err("Unexpected parse artifact".to_owned()),
+    }
+}
+
+fn sum_op(operand: EvArray) -> Result<EvArray, String> {
+    match operand {
+        EvArray::A(a) => {
+            let mut out = 0.;
+            for i in a {
+                if let EvArray::F(f) = i {
+                    out += f
+                } else {
+                    return Err(format!("Impossible to sum an array containing arrays. Consider to flatten the array with '§'."));
+                }
+            }
+            Ok(EvArray::F(out))
+        }
+        f => Ok(f),
+    }
+}
+fn flatten_op(operand: EvArray) -> Result<EvArray, String> {
+    match operand {
+        EvArray::F(_) => Ok(operand),
+        EvArray::A(a) => {
+            let mut out = vec![];
+            for i in a {
+                match flatten_op(i)? {
+                    EvArray::A(a) => out.append(&mut a.clone()),
+                    f => out.push(f),
+                }
+            }
+            Ok(EvArray::A(out))
+        }
     }
 }
 
