@@ -192,11 +192,13 @@ fn is_unary(c: char) -> bool {
 }
 
 pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
-    let chars = s.chars();
+    let chars = s.chars().collect::<Vec<char>>();
     let mut out = vec![];
 
     let mut c_token = Token::None;
-    for c in chars {
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
         match c {
             '0'..='9' | '.' => {
                 if let Token::Number(n) = c_token {
@@ -253,30 +255,6 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
                 c_token = Token::Comma;
             }
             ' ' => {}
-            'i' => {
-                if Token::None != c_token {
-                    out.push(c_token);
-                }
-                c_token = Token::Control(Control::If);
-            }
-            'e' => {
-                if Token::None != c_token {
-                    out.push(c_token);
-                }
-                c_token = Token::Control(Control::Else);
-            }
-            'f' => {
-                if Token::None != c_token {
-                    out.push(c_token);
-                }
-                c_token = Token::Control(Control::For);
-            }
-            'w' => {
-                if Token::None != c_token {
-                    out.push(c_token);
-                }
-                c_token = Token::Control(Control::While);
-            }
             '$' => {
                 if Token::None != c_token {
                     out.push(c_token);
@@ -284,6 +262,54 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
                 c_token = Token::Output;
             }
             c => {
+                if c == 'i' {
+                    if chars.len() - i >= "if".len() {
+                        if &s[i..i + "if".len()] == "if" {
+                            if Token::None != c_token {
+                                out.push(c_token);
+                            }
+                            c_token = Token::Control(Control::If);
+                            i += "if".len();
+                            continue;
+                        }
+                    }
+                }
+                if c == 'e' {
+                    if chars.len() - i >= "else".len() {
+                        if &s[i..i + "else".len()] == "else" {
+                            if Token::None != c_token {
+                                out.push(c_token);
+                            }
+                            c_token = Token::Control(Control::Else);
+                            i += "else".len();
+                            continue;
+                        }
+                    }
+                }
+                if c == 'w' {
+                    if chars.len() - i >= "while".len() {
+                        if &s[i..i + "while".len()] == "while" {
+                            if Token::None != c_token {
+                                out.push(c_token);
+                            }
+                            c_token = Token::Control(Control::While);
+                            i += "while".len();
+                            continue;
+                        }
+                    }
+                }
+                if c == 'f' {
+                    if chars.len() - i >= "for".len() {
+                        if &s[i..i + "for".len()] == "for" {
+                            if Token::None != c_token {
+                                out.push(c_token);
+                            }
+                            c_token = Token::Control(Control::For);
+                            i += "for".len();
+                            continue;
+                        }
+                    }
+                }
                 if Token::None != c_token {
                     out.push(c_token);
                 }
@@ -294,6 +320,7 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
                 }
             }
         }
+        i += 1;
     }
 
     out.push(c_token);
