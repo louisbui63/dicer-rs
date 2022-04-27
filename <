@@ -93,7 +93,7 @@ impl Expr {
             }
             Expr::None => Err(format!("Invalid token in expression : 'Operator({})'", 0)),
             Expr::Var(v) => Ok(Self::Operation(
-                Box::new(Self::Var(v.clone())),
+                Box::new(Self::Var(*v)),
                 o,
                 if is_unary(o) {
                     Box::new(Self::Val(0.))
@@ -143,11 +143,11 @@ impl Expr {
 
 #[derive(Clone, Debug)]
 pub enum Stmt {
-    Bind(String, Expr),
+    Bind(char, Expr),
     Out(Expr),
     Condition(Expr, Option<Vec<Stmt>>, Option<Vec<Stmt>>),
     While(Expr, Option<Vec<Stmt>>),
-    For(Option<String>, Expr, Option<Vec<Stmt>>),
+    For(Option<char>, Expr, Option<Vec<Stmt>>),
     None,
 }
 
@@ -201,7 +201,7 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
         let c = chars[i];
         match c {
             '0'..='9' | '.' => {
-                if let Token::Number(n) = c_token.clone() {
+                if let Token::Number(n) = c_token {
                     c_token = Token::Number(std::str::FromStr::from_str(
                         &([n.to_string(), c.to_string()].concat())[..],
                     )?)
@@ -265,8 +265,7 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
                 if c == 'i' {
                     if chars.len() - i >= "if".len() {
                         if &s[i..i + "if".len()] == "if" {
-                            if let Token::None = c_token {
-                            } else {
+                            if Token::None != c_token {
                                 out.push(c_token);
                             }
                             c_token = Token::Control(Control::If);
@@ -312,12 +311,12 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
                     }
                 }
                 if Token::None != c_token {
-                    out.push(c_token.clone());
+                    out.push(c_token);
                 }
                 if c.is_uppercase() {
                     let mut j = i;
                     let mut variable = "".to_owned();
-                    while j < chars.len() && (chars[j].is_uppercase() || chars[j] == '_') {
+                    while chars[j].is_uppercase() || chars[j] == '_' {
                         variable.push(chars[j]);
                         j += 1;
                     }
@@ -341,7 +340,7 @@ fn parse_parenthesis(t: &Vec<Token>, i: &mut usize) -> Result<Expr, String> {
     let mut out = Expr::None;
 
     while *i < t.len() {
-        match t[*i].clone() {
+        match t[*i] {
             Token::Number(n) => out = out.add_f(n)?,
             Token::Variable(v) => out = out.add_var(v)?,
             Token::Operator(o) => out = out.add_op(o)?,
@@ -368,7 +367,7 @@ pub fn parse_array(t: &Vec<Token>, i: &mut usize) -> Result<Array, String> {
     let mut current_expr = Expr::None;
 
     while *i < t.len() {
-        match t[*i].clone() {
+        match t[*i] {
             Token::Number(n) => {
                 current_expr = current_expr.add_f(n)?;
             }
@@ -424,7 +423,7 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
     let mut current_stmt = Stmt::None;
 
     while *i < t.len() {
-        match t[*i].clone() {
+        match t[*i] {
             Token::Number(n) => {
                 if let Stmt::Bind(u, expr) = current_stmt.clone() {
                     current_stmt = Stmt::Bind(u, expr.add_f(n)?)
@@ -472,7 +471,7 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                     }
                     current_stmt = Stmt::Bind(v, Expr::None);
                 } else if let Stmt::Bind(u, expr) = current_stmt.clone() {
-                    match expr.add_var(v.clone()) {
+                    match expr.add_var(v) {
                         Ok(e) => current_stmt = Stmt::Bind(u, e),
                         Err(_) => {
                             out.push(current_stmt);
@@ -480,7 +479,7 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                         }
                     }
                 } else if let Stmt::Out(expr) = current_stmt.clone() {
-                    match expr.add_var(v.clone()) {
+                    match expr.add_var(v) {
                         Ok(e) => current_stmt = Stmt::Out(e),
                         Err(_) => {
                             out.push(current_stmt);
@@ -494,7 +493,7 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                 } else if let Stmt::For(None, Expr::None, None) = current_stmt.clone() {
                     current_stmt = Stmt::For(Some(v), Expr::None, None);
                 } else if let Stmt::For(Some(v), e, None) = current_stmt.clone() {
-                    current_stmt = Stmt::For(Some(v.clone()), e.add_var(v)?, None);
+                    current_stmt = Stmt::For(Some(v), e.add_var(v)?, None);
                 } else {
                     return Err("Invalid Token".to_owned());
                 }

@@ -39,7 +39,7 @@ impl std::fmt::Display for EvArray {
     }
 }
 
-fn evaluate_expr(e: Expr, mem: &HashMap<char, EvArray>) -> Result<EvArray, String> {
+fn evaluate_expr(e: Expr, mem: &HashMap<String, EvArray>) -> Result<EvArray, String> {
     match e {
         Expr::Array(v) => {
             let mut out = vec![];
@@ -254,7 +254,7 @@ fn keephigh_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
     }
 }
 
-fn x_op(first: EvArray, second: (Expr, &HashMap<char, EvArray>)) -> Result<EvArray, String> {
+fn x_op(first: EvArray, second: (Expr, &HashMap<String, EvArray>)) -> Result<EvArray, String> {
     match first {
         EvArray::F(f) => {
             let mut out = vec![];
@@ -568,7 +568,7 @@ fn dice_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
     }
 }
 
-pub fn evaluate(t: &Vec<Stmt>, mem: &mut HashMap<char, EvArray>) -> Result<String, String> {
+pub fn evaluate(t: &Vec<Stmt>, mem: &mut HashMap<String, EvArray>) -> Result<String, String> {
     let mut out: String = String::new();
 
     let mut i = 0;
@@ -609,7 +609,7 @@ pub fn evaluate(t: &Vec<Stmt>, mem: &mut HashMap<char, EvArray>) -> Result<Strin
                     out = format!("{}{}", out, evaluate(&bod, mem)?);
                 } else if let EvArray::A(a) = es {
                     for i in a {
-                        mem.insert(v, i);
+                        mem.insert(v.clone(), i);
                         out = format!("{}{}", out, evaluate(&bod, mem)?);
                     }
                 }
