@@ -17,6 +17,34 @@ impl EvArray {
             true
         }
     }
+    fn stringify(&self) -> Result<String, String> {
+        match self {
+            EvArray::F(f) => {
+                let c = char::from_u32(*f as u32);
+                if let None = c {
+                    return Err(format!("invalid unicode value : '{}'", *f as u32));
+                }
+                Ok(c.unwrap().to_string())
+            }
+            EvArray::A(a) => {
+                let mut out = "".to_owned();
+                for i in a {
+                    if let EvArray::F(f) = i {
+                        let c = char::from_u32(*f as u32);
+                        if let None = c {
+                            return Err(format!("invalid unicode value : '{}'", *f as u32));
+                        }
+                        out.push(c.unwrap())
+                    } else {
+                        return Err(format!(
+                            "error : operator '~' doesn't automatically flatten"
+                        ));
+                    }
+                }
+                Ok(out)
+            }
+        }
+    }
 }
 
 impl std::fmt::Display for EvArray {
@@ -142,7 +170,7 @@ fn evaluate_expr(e: Expr, mem: &HashMap<String, EvArray>) -> Result<EvArray, Str
                 )?)
             }
             'x' => return Ok(x_op(evaluate_expr(*first, mem)?, (*second, mem))?),
-            '§' => return Ok(flatten_op(evaluate_expr(*first, mem)?)?),
+            '_' => return Ok(flatten_op(evaluate_expr(*first, mem)?)?),
             's' => return Ok(sum_op(evaluate_expr(*first, mem)?)?),
 
             e => return Err(format!("Unknown operator '{}'", e)),
@@ -582,6 +610,10 @@ pub fn evaluate(t: &Vec<Stmt>, mem: &mut HashMap<String, EvArray>) -> Result<Str
             Stmt::Out(e) => {
                 let o = evaluate_expr(e, &mem)?;
                 out = format!("{}{}\n", out, o);
+            }
+            Stmt::StringOut(e) => {
+                let o = evaluate_expr(e, &mem)?;
+                out = format!("{}{}\n", out, o.stringify()?);
             }
             Stmt::Condition(e, Some(ife), el) => {
                 if evaluate_expr(e, &mem)?.is_true() {

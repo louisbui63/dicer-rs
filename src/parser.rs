@@ -14,6 +14,7 @@ pub enum Token {
     Operator(char),
     Variable(String),
     Control(Control),
+    StringOutput,
     Output,
     LParen,
     RParen,
@@ -148,6 +149,7 @@ pub enum Stmt {
     Condition(Expr, Option<Vec<Stmt>>, Option<Vec<Stmt>>),
     While(Expr, Option<Vec<Stmt>>),
     For(Option<String>, Expr, Option<Vec<Stmt>>),
+    StringOut(Expr),
     None,
 }
 
@@ -163,7 +165,7 @@ impl Array {
 fn is_operator(c: char) -> bool {
     return match c {
         'd' | '+' | '-' | '*' | '/' | '^' | '<' | '>' | '=' | '|' | '&' | '@' | 'x' | 'l' | 'h'
-        | '§' | 's' => true,
+        | '_' | 's' => true,
         _ => false,
     };
 }
@@ -179,16 +181,47 @@ fn get_precedence(c: char) -> usize {
         'd' => 1,
         '<' | '>' => 9,
         '=' => 10,
-        '§' | 's' => 7,
+        '_' | 's' => 7,
         _ => unreachable!(),
     };
 }
 
 fn is_unary(c: char) -> bool {
     return match c {
-        '§' | 's' => true,
+        '_' | 's' => true,
         _ => false,
     };
+}
+
+fn tokenize_string(chars: Vec<char>, i: &mut usize) -> Vec<Token> {
+    let mut out = vec![];
+
+    let mut escape = false;
+
+    while i < &mut chars.len() && (chars[*i] != '"' || escape) {
+        let c = chars[*i];
+        if escape {
+            if c == '\\' {
+                out.push(Token::Number('\\' as u32 as f64));
+                out.push(Token::Comma);
+            } else if c == '"' {
+                out.push(Token::Number('"' as u32 as f64));
+                out.push(Token::Comma);
+            }
+            escape = false;
+        } else if c == '\\' {
+            escape = true;
+        } else {
+            out.push(Token::Number(c as u32 as f64));
+            out.push(Token::Comma);
+        }
+        *i += 1;
+    }
+    if out.len() > 1 {
+        out[0..=out.len() - 2].to_vec()
+    } else {
+        out
+    }
 }
 
 pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
@@ -260,6 +293,21 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
                     out.push(c_token);
                 }
                 c_token = Token::Output;
+            }
+            '~' => {
+                if Token::None != c_token {
+                    out.push(c_token);
+                }
+                c_token = Token::StringOutput;
+            }
+            '"' => {
+                if Token::None != c_token {
+                    out.push(c_token);
+                }
+                out.push(Token::LBracket);
+                i += 1;
+                out.append(&mut tokenize_string(chars.clone(), &mut i));
+                c_token = Token::RBracket;
             }
             c => {
                 if c == 'i' {
@@ -436,6 +484,8 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                     current_stmt = Stmt::While(expr.add_f(n)?, None)
                 } else if let Stmt::For(Some(v), expr, None) = current_stmt.clone() {
                     current_stmt = Stmt::For(Some(v), expr.add_f(n)?, None)
+                } else if let Stmt::StringOut(expr) = current_stmt.clone() {
+                    current_stmt = Stmt::StringOut(expr.add_f(n)?)
                 } else {
                     return Err(format!("Invalid Token 'Number({})' at index {}", n, i));
                 }
@@ -451,6 +501,8 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                     }
                 } else if let Stmt::Out(expr) = current_stmt.clone() {
                     current_stmt = Stmt::Out(expr.add_op(o)?)
+                } else if let Stmt::StringOut(expr) = current_stmt.clone() {
+                    current_stmt = Stmt::StringOut(expr.add_op(o)?)
                 } else if let Stmt::Condition(expr, None, None) = current_stmt.clone() {
                     current_stmt = Stmt::Condition(expr.add_op(o)?, None, None)
                 } else if let Stmt::While(expr, None) = current_stmt.clone() {
@@ -482,6 +534,14 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                 } else if let Stmt::Out(expr) = current_stmt.clone() {
                     match expr.add_var(v.clone()) {
                         Ok(e) => current_stmt = Stmt::Out(e),
+                        Err(_) => {
+                            out.push(current_stmt);
+                            current_stmt = Stmt::Bind(v, Expr::None);
+                        }
+                    }
+                } else if let Stmt::StringOut(expr) = current_stmt.clone() {
+                    match expr.add_var(v.clone()) {
+                        Ok(e) => current_stmt = Stmt::StringOut(e),
                         Err(_) => {
                             out.push(current_stmt);
                             current_stmt = Stmt::Bind(v, Expr::None);
@@ -529,6 +589,13 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                     current_stmt = Stmt::For(None, Expr::None, None);
                 }
             }
+            Token::StringOutput => {
+                if let Stmt::None = current_stmt {
+                } else {
+                    out.push(current_stmt.clone());
+                }
+                current_stmt = Stmt::StringOut(Expr::None);
+            }
             Token::Output => {
                 if let Stmt::None = current_stmt {
                 } else {
@@ -542,6 +609,8 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                     current_stmt = Stmt::Bind(u, expr.add_expr(parse_parenthesis(t, i)?)?)
                 } else if let Stmt::Out(expr) = current_stmt.clone() {
                     current_stmt = Stmt::Out(expr.add_expr(parse_parenthesis(t, i)?)?)
+                } else if let Stmt::StringOut(expr) = current_stmt.clone() {
+                    current_stmt = Stmt::StringOut(expr.add_expr(parse_parenthesis(t, i)?)?)
                 } else if let Stmt::Condition(expr, None, None) = current_stmt.clone() {
                     current_stmt =
                         Stmt::Condition(expr.add_expr(parse_parenthesis(t, i)?)?, None, None)
@@ -561,6 +630,8 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                     current_stmt = Stmt::Bind(u, expr.add_arr(parse_array(t, i)?)?)
                 } else if let Stmt::Out(expr) = current_stmt.clone() {
                     current_stmt = Stmt::Out(expr.add_arr(parse_array(t, i)?)?)
+                } else if let Stmt::StringOut(expr) = current_stmt.clone() {
+                    current_stmt = Stmt::StringOut(expr.add_arr(parse_array(t, i)?)?)
                 } else if let Stmt::Condition(expr, None, None) = current_stmt.clone() {
                     current_stmt = Stmt::Condition(expr.add_arr(parse_array(t, i)?)?, None, None)
                 } else if let Stmt::While(expr, None) = current_stmt.clone() {
