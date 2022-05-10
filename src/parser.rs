@@ -31,6 +31,7 @@ pub enum Expr {
     Array(Array),
     Val(f64),
     Var(String),
+    Call(String, Vec<Expr>),
     Operation(Box<Expr>, char, Box<Expr>),
     None,
 }
@@ -43,10 +44,23 @@ impl Expr {
                 *b,
                 Box::new(e.add_f(n)?),
             )),
-            Expr::Val(_) => Err(format!("Invalid token in expression : 'Number({})'", n)),
-            Expr::Var(_) => Err(format!("Invalid token in expression : 'Number({})'", n)),
+            Expr::Val(_) | Expr::Call(_, _) | Expr::Var(_) | Expr::Array(_) => {
+                Err(format!("Invalid token in expression : 'Number({})'", n))
+            }
             Expr::None => Ok(Self::Val(n)),
-            Expr::Array(_) => Err(format!("Invalid token in expression : 'Number({})'", n)),
+        }
+    }
+    fn add_call(&self, n: String, args: Vec<Expr>) -> Result<Expr, String> {
+        match self {
+            Expr::Operation(a, b, e) => Ok(Self::Operation(
+                Box::new(*a.clone()),
+                *b,
+                Box::new(e.add_call(n, args)?),
+            )),
+            Expr::Val(_) | Expr::Call(_, _) | Expr::Var(_) | Expr::Array(_) => {
+                Err(format!("Invalid token in expression : 'Number({})'", n))
+            }
+            Expr::None => Ok(Self::Call(n, args)),
         }
     }
     fn add_arr(&self, a: Array) -> Result<Expr, String> {
@@ -56,10 +70,10 @@ impl Expr {
                 *b,
                 Box::new(e.add_arr(a)?),
             )),
-            Expr::Val(_) => Err(format!("Invalid token in expression : 'Arr({:?})'", a)),
-            Expr::Var(_) => Err(format!("Invalid token in expression : 'Arr({:?})'", a)),
+            Expr::Val(_) | Expr::Call(_, _) | Expr::Var(_) | Expr::Array(_) => {
+                Err(format!("Invalid token in expression : 'Arr({:?})'", a))
+            }
             Expr::None => Ok(Self::Array(a)),
-            Expr::Array(_) => Err(format!("Invalid token in expression : 'Arr({:?})'", a)),
         }
     }
     fn add_op(&self, o: char) -> Result<Expr, String> {
@@ -111,33 +125,42 @@ impl Expr {
                     Box::new(Self::None)
                 },
             )),
+            Expr::Call(a, b) => Ok(Self::Operation(
+                Box::new(Self::Call(a.clone(), b.clone())),
+                o,
+                if is_unary(o) {
+                    Box::new(Self::Val(0.))
+                } else {
+                    Box::new(Self::None)
+                },
+            )),
         }
     }
     fn add_var(&self, v: String) -> Result<Expr, String> {
         match self {
-            Expr::Val(_) => Err(format!("Invalid token in expression : 'Variable({})'", v)),
-            Expr::Var(_) => Err(format!("Invalid token in expression : 'Variable({})'", v)),
             Expr::Operation(a, b, e) => Ok(Self::Operation(
                 Box::new(*a.clone()),
                 *b,
                 Box::new(e.add_var(v)?),
             )),
             Expr::None => Ok(Self::Var(v)),
-            Expr::Array(_) => Err(format!("Invalid token in expression : 'Variable({})'", v)),
+            Expr::Val(_) | Expr::Call(_, _) | Expr::Var(_) | Expr::Array(_) => {
+                Err(format!("Invalid token in expression : 'Variable({})'", v))
+            }
         }
     }
 
     fn add_expr(&self, i: Expr) -> Result<Expr, String> {
         match self {
-            Expr::Val(_) => Err(format!("Invalid token in expression : 'Expr({:?})'", i)),
-            Expr::Var(_) => Err(format!("Invalid token in expression : 'Expr({:?})'", i)),
             Expr::Operation(a, b, e) => Ok(Self::Operation(
                 Box::new(*a.clone()),
                 *b,
                 Box::new(e.add_expr(i)?),
             )),
             Expr::None => Ok(i),
-            Expr::Array(_) => Err(format!("Invalid token in expression : 'Expr({:?})'", i)),
+            Expr::Val(_) | Expr::Call(_, _) | Expr::Var(_) | Expr::Array(_) => {
+                Err(format!("Invalid token in expression : 'Expr({:?})'", i))
+            }
         }
     }
 }
@@ -409,6 +432,67 @@ fn parse_parenthesis(t: &Vec<Token>, i: &mut usize) -> Result<Expr, String> {
 
     return Ok(out);
 }
+pub fn parse_call(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Expr>, String> {
+    let mut out = vec![];
+    *i += 1;
+
+    let mut current_expr = Expr::None;
+
+    while *i < t.len() {
+        match t[*i].clone() {
+            Token::Number(n) => {
+                current_expr = current_expr.add_f(n)?;
+            }
+            Token::Operator(o) => {
+                current_expr = current_expr.add_op(o)?;
+            }
+            Token::Variable(v) => {
+                if let Token::LParen = t[*i + 1] {
+                    *i += 1;
+                    current_expr = current_expr.add_call(v, parse_call(t, i)?)?;
+                } else {
+                    current_expr = current_expr.add_var(v)?;
+                }
+            }
+            Token::LParen => {
+                *i += 1;
+                current_expr = current_expr.add_expr(parse_parenthesis(t, i)?)?;
+            }
+            Token::LBracket => {
+                *i += 1;
+                current_expr = current_expr.add_arr(parse_array(t, i)?)?;
+            }
+
+            Token::RParen => {
+                if let Expr::None = current_expr {
+                } else {
+                    out.push(current_expr.clone())
+                }
+                break;
+            }
+            Token::Comma => {
+                if let Expr::None = current_expr {
+                    return Err(format!(
+                        "Invalid token in function call : {:?} at index {}",
+                        t[*i], i
+                    ));
+                } else {
+                    out.push(current_expr.clone());
+                    current_expr = Expr::None;
+                }
+            }
+            _ => {
+                return Err(format!(
+                    "Invalid token in function call : {:?} at index {}",
+                    t[*i], i
+                ))
+            }
+        }
+        *i += 1;
+    }
+
+    return Ok(out);
+}
 
 pub fn parse_array(t: &Vec<Token>, i: &mut usize) -> Result<Array, String> {
     let mut out = Array(vec![]);
@@ -524,37 +608,69 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                     }
                     current_stmt = Stmt::Bind(v, Expr::None);
                 } else if let Stmt::Bind(u, expr) = current_stmt.clone() {
-                    match expr.add_var(v.clone()) {
-                        Ok(e) => current_stmt = Stmt::Bind(u, e),
-                        Err(_) => {
-                            out.push(current_stmt);
-                            current_stmt = Stmt::Bind(v, Expr::None);
+                    if let Token::LParen = t[*i + 1] {
+                        *i += 1;
+                        current_stmt = Stmt::Bind(u, expr.add_call(v, parse_call(t, i)?)?);
+                    } else {
+                        match expr.add_var(v.clone()) {
+                            Ok(e) => current_stmt = Stmt::Bind(u, e),
+                            Err(_) => {
+                                out.push(current_stmt);
+                                current_stmt = Stmt::Bind(v, Expr::None);
+                            }
                         }
                     }
                 } else if let Stmt::Out(expr) = current_stmt.clone() {
-                    match expr.add_var(v.clone()) {
-                        Ok(e) => current_stmt = Stmt::Out(e),
-                        Err(_) => {
-                            out.push(current_stmt);
-                            current_stmt = Stmt::Bind(v, Expr::None);
+                    if let Token::LParen = t[*i + 1] {
+                        *i += 1;
+                        current_stmt = Stmt::Out(expr.add_call(v, parse_call(t, i)?)?);
+                    } else {
+                        match expr.add_var(v.clone()) {
+                            Ok(e) => current_stmt = Stmt::Out(e),
+                            Err(_) => {
+                                out.push(current_stmt);
+                                current_stmt = Stmt::Bind(v, Expr::None);
+                            }
                         }
                     }
                 } else if let Stmt::StringOut(expr) = current_stmt.clone() {
-                    match expr.add_var(v.clone()) {
-                        Ok(e) => current_stmt = Stmt::StringOut(e),
-                        Err(_) => {
-                            out.push(current_stmt);
-                            current_stmt = Stmt::Bind(v, Expr::None);
+                    if let Token::LParen = t[*i + 1] {
+                        *i += 1;
+                        current_stmt = Stmt::StringOut(expr.add_call(v, parse_call(t, i)?)?);
+                    } else {
+                        match expr.add_var(v.clone()) {
+                            Ok(e) => current_stmt = Stmt::StringOut(e),
+                            Err(_) => {
+                                out.push(current_stmt);
+                                current_stmt = Stmt::Bind(v, Expr::None);
+                            }
                         }
                     }
                 } else if let Stmt::Condition(expr, None, None) = current_stmt.clone() {
-                    current_stmt = Stmt::Condition(expr.add_var(v)?, None, None)
+                    if let Token::LParen = t[*i + 1] {
+                        *i += 1;
+                        current_stmt =
+                            Stmt::Condition(expr.add_call(v, parse_call(t, i)?)?, None, None);
+                    } else {
+                        current_stmt = Stmt::Condition(expr.add_var(v)?, None, None)
+                    }
                 } else if let Stmt::While(expr, None) = current_stmt.clone() {
-                    current_stmt = Stmt::While(expr.add_var(v)?, None)
+                    if let Token::LParen = t[*i + 1] {
+                        *i += 1;
+                        current_stmt = Stmt::While(expr.add_call(v, parse_call(t, i)?)?, None);
+                    } else {
+                        current_stmt = Stmt::While(expr.add_var(v)?, None)
+                    }
                 } else if let Stmt::For(None, Expr::None, None) = current_stmt.clone() {
                     current_stmt = Stmt::For(Some(v), Expr::None, None);
                 } else if let Stmt::For(Some(v), e, None) = current_stmt.clone() {
-                    current_stmt = Stmt::For(Some(v.clone()), e.add_var(v)?, None);
+                    if let Token::LParen = t[*i + 1] {
+                        *i += 1;
+                        current_stmt =
+                            Stmt::For(Some(v.clone()), e.add_call(v, parse_call(t, i)?)?, None);
+                    } else {
+                        current_stmt = Stmt::For(Some(v.clone()), e.add_var(v)?, None);
+                    }
                 } else {
                     return Err("Invalid Token".to_owned());
                 }

@@ -48,9 +48,11 @@ there also some specific commands :
             let to_unwrap =
                 crate::evaluator::evaluate(&parsed, &mut std::collections::HashMap::new());
             if let Err(e) = to_unwrap.clone() {
-                if let Err(why) = msg.channel_id.say(&ctx.http, e).await {
-                    eprintln!("error sending message : {:?}", why);
-                    return;
+                if e != "" {
+                    if let Err(why) = msg.channel_id.say(&ctx.http, e).await {
+                        eprintln!("error sending message : {:?}", why);
+                        return;
+                    }
                 }
             }
             let evaluated = to_unwrap.unwrap();

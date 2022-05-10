@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use rand::prelude::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum EvArray {
     F(f64),
     A(Vec<EvArray>),
@@ -176,6 +176,36 @@ fn evaluate_expr(e: Expr, mem: &HashMap<String, EvArray>) -> Result<EvArray, Str
             e => return Err(format!("Unknown operator '{}'", e)),
         },
         Expr::None => return Err("Unexpected parse artifact".to_owned()),
+        Expr::Call(name, args) => {
+            let mut parsed_args = vec![];
+            for e in args.clone() {
+                parsed_args.push(evaluate_expr(e, mem)?)
+            }
+            match &name[..] {
+                "CONTAINS" => {
+                    if args.clone().len() != 2 {
+                        return Err(format!(
+                            "unvalid number of arguments in call to function '{}'",
+                            name
+                        ));
+                    }
+                    match parsed_args[0].clone() {
+                        EvArray::F(_) => {
+                            return Ok(EvArray::F((parsed_args[0] == parsed_args[1]) as u8 as f64))
+                        }
+                        EvArray::A(a) => {
+                            for i in a {
+                                if i == parsed_args[1] {
+                                    return Ok(EvArray::F(1.));
+                                }
+                            }
+                            return Ok(EvArray::F(0.));
+                        }
+                    }
+                }
+                _ => Err(format!("Unknown function : '{}'", name)),
+            }
+        }
     }
 }
 
@@ -187,7 +217,7 @@ fn sum_op(operand: EvArray) -> Result<EvArray, String> {
                 if let EvArray::F(f) = i {
                     out += f
                 } else {
-                    return Err(format!("Impossible to sum an array containing arrays. Consider to flatten the array with '§'."));
+                    return Err(format!("Impossible to sum an array containing arrays. Consider to flatten the array with '_'."));
                 }
             }
             Ok(EvArray::F(out))
