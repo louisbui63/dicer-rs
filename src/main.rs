@@ -2,8 +2,6 @@ use serenity::async_trait;
 use serenity::client::{Client, Context, EventHandler};
 use serenity::model::channel::Message;
 
-use std::fs;
-
 mod evaluator;
 mod parser;
 
@@ -66,6 +64,44 @@ there also some specific commands :
     }
 }
 
+#[cfg(debug_assertions)]
+fn main() {
+    let mut buffer = String::new();
+    let stdin = std::io::stdin();
+    loop {
+        stdin.read_line(&mut buffer).unwrap();
+        let to_unwrap = crate::parser::tokenize(buffer.to_owned());
+
+        println!("{}", buffer);
+
+        if let Err(e) = to_unwrap.clone() {
+            eprintln!("{}", e);
+            continue;
+        }
+        let tokens = to_unwrap.unwrap();
+        println!("{:?}", tokens);
+
+        let mut i = 0;
+        let to_unwrap = crate::parser::parse(&tokens, &mut i);
+        if let Err(e) = to_unwrap.clone() {
+            eprintln!("{}", e);
+            continue;
+        }
+        let parsed = to_unwrap.unwrap();
+        println!("{:?}", parsed);
+
+        let to_unwrap = crate::evaluator::evaluate(&parsed, &mut std::collections::HashMap::new());
+        if let Err(e) = to_unwrap.clone() {
+            eprintln!("{}", e);
+            continue;
+        }
+        let evaluated = to_unwrap.unwrap();
+
+        println!("{}", evaluated);
+    }
+}
+
+#[cfg(not(debug_assertions))]
 #[tokio::main]
 async fn main() {
     let token = fs::read_to_string("token.txt")

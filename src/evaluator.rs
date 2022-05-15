@@ -185,7 +185,7 @@ fn evaluate_expr(e: Expr, mem: &HashMap<String, EvArray>) -> Result<EvArray, Str
                 "CONTAINS" => {
                     if args.clone().len() != 2 {
                         return Err(format!(
-                            "unvalid number of arguments in call to function '{}'",
+                            "invalid number of arguments in call to function '{}'",
                             name
                         ));
                     }
@@ -201,6 +201,23 @@ fn evaluate_expr(e: Expr, mem: &HashMap<String, EvArray>) -> Result<EvArray, Str
                             }
                             return Ok(EvArray::F(0.));
                         }
+                    }
+                }
+                "PUSH" => {
+                    if args.clone().len() != 2 {
+                        return Err(format!(
+                            "invalid number of arguments in call to function '{}'",
+                            name
+                        ));
+                    }
+                    if let EvArray::A(mut a) = parsed_args[0].clone() {
+                        a.push(parsed_args[1].clone());
+                        return Ok(EvArray::A(a));
+                    } else {
+                        return Err(format!(
+                            "first argument must be an array in call to function '{}'",
+                            name
+                        ));
                     }
                 }
                 _ => Err(format!("Unknown function : '{}'", name)),

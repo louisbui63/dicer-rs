@@ -388,12 +388,12 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
                 if c.is_uppercase() {
                     let mut j = i;
                     let mut variable = "".to_owned();
-                    while j < chars.len() && (chars[j].is_uppercase() || chars[j] == '_') {
+                    while j < chars.len() && (chars[j].is_uppercase()) {
                         variable.push(chars[j]);
                         j += 1;
                     }
                     c_token = Token::Variable(variable);
-                    i = j;
+                    i = j + 1;
                     continue;
                 } else if is_operator(c) {
                     c_token = Token::Operator(c);
@@ -608,7 +608,7 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                     }
                     current_stmt = Stmt::Bind(v, Expr::None);
                 } else if let Stmt::Bind(u, expr) = current_stmt.clone() {
-                    if let Token::LParen = t[*i + 1] {
+                    if t.len() > *i + 1 && matches!(t[*i + 1], Token::LParen) {
                         *i += 1;
                         current_stmt = Stmt::Bind(u, expr.add_call(v, parse_call(t, i)?)?);
                     } else {
@@ -621,7 +621,7 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                         }
                     }
                 } else if let Stmt::Out(expr) = current_stmt.clone() {
-                    if let Token::LParen = t[*i + 1] {
+                    if t.len() > *i + 1 && matches!(t[*i + 1], Token::LParen) {
                         *i += 1;
                         current_stmt = Stmt::Out(expr.add_call(v, parse_call(t, i)?)?);
                     } else {
@@ -634,7 +634,7 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                         }
                     }
                 } else if let Stmt::StringOut(expr) = current_stmt.clone() {
-                    if let Token::LParen = t[*i + 1] {
+                    if t.len() > *i + 1 && matches!(t[*i + 1], Token::LParen) {
                         *i += 1;
                         current_stmt = Stmt::StringOut(expr.add_call(v, parse_call(t, i)?)?);
                     } else {
@@ -647,7 +647,7 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                         }
                     }
                 } else if let Stmt::Condition(expr, None, None) = current_stmt.clone() {
-                    if let Token::LParen = t[*i + 1] {
+                    if t.len() > *i + 1 && matches!(t[*i + 1], Token::LParen) {
                         *i += 1;
                         current_stmt =
                             Stmt::Condition(expr.add_call(v, parse_call(t, i)?)?, None, None);
@@ -655,7 +655,7 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                         current_stmt = Stmt::Condition(expr.add_var(v)?, None, None)
                     }
                 } else if let Stmt::While(expr, None) = current_stmt.clone() {
-                    if let Token::LParen = t[*i + 1] {
+                    if t.len() > *i + 1 && matches!(t[*i + 1], Token::LParen) {
                         *i += 1;
                         current_stmt = Stmt::While(expr.add_call(v, parse_call(t, i)?)?, None);
                     } else {
@@ -664,7 +664,7 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                 } else if let Stmt::For(None, Expr::None, None) = current_stmt.clone() {
                     current_stmt = Stmt::For(Some(v), Expr::None, None);
                 } else if let Stmt::For(Some(v), e, None) = current_stmt.clone() {
-                    if let Token::LParen = t[*i + 1] {
+                    if t.len() > *i + 1 && matches!(t[*i + 1], Token::LParen) {
                         *i += 1;
                         current_stmt =
                             Stmt::For(Some(v.clone()), e.add_call(v, parse_call(t, i)?)?, None);
