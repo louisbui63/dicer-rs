@@ -1,3 +1,4 @@
 token.txt
 target/
+parser/
 Cargo.lock
