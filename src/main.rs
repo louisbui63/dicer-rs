@@ -104,7 +104,7 @@ fn main() {
 #[cfg(not(debug_assertions))]
 #[tokio::main]
 async fn main() {
-    let token = fs::read_to_string("token.txt")
+    let token = std::fs::read_to_string("token.txt")
         .expect("unable to find token, please check token.txt location");
 
     use serenity::model::gateway::GatewayIntents;

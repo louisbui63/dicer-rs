@@ -1,0 +1,6 @@
+(executable
+ (public_name parser)
+ (name main)
+ (libraries core parser)
+ (preprocess (pps ppx_jane))
+)

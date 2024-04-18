@@ -1,0 +1,10 @@
+[Unit]
+Description=dice-rolling discord bot
+After=network.target
+
+[Service]
+WorkingDirectory=/etc/dicer-rs/
+ExecStart=/etc/dicer-rs/dicer-rs
+
+[Install]
+WantedBy=multi-user.target

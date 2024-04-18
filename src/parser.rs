@@ -255,6 +255,7 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
+        println!("{c}:{i}->{:?}", c_token);
         match c {
             '0'..='9' | '.' => {
                 if let Token::Number(n) = c_token.clone() {
@@ -310,7 +311,7 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
                 }
                 c_token = Token::Comma;
             }
-            ' ' => {}
+            ' ' | ';' => {}
             '$' => {
                 if Token::None != c_token {
                     out.push(c_token);
@@ -393,7 +394,7 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
                         j += 1;
                     }
                     c_token = Token::Variable(variable);
-                    i = j + 1;
+                    i = j; //+ 1;
                     continue;
                 } else if is_operator(c) {
                     c_token = Token::Operator(c);

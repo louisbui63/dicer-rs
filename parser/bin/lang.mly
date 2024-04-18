@@ -1,0 +1,1 @@
+%token <float> NUMBER
