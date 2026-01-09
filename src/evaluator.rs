@@ -262,11 +262,11 @@ fn keeplow_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
     match (first, second) {
         (EvArray::A(a), EvArray::F(f)) => {
             if f < 0. {
-                return Err(format!("Float cannot be negative in call to operator 'l'"));
+                return Err(format!("Rhs cannot be negative in call to operator 'l'"));
             }
-            if f as usize >= a.len() {
+            if f as usize > a.len() {
                 return Err(format!(
-                    "Float is to large compared to array in call to operator 'l'"
+                    "Rhs is to large compared to array in call to operator 'l'"
                 ));
             }
             let mut flts = vec![];
@@ -297,11 +297,11 @@ fn keephigh_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
     match (first, second) {
         (EvArray::A(a), EvArray::F(f)) => {
             if f < 0. {
-                return Err(format!("Float cannot be negative in call to operator 'h'"));
+                return Err(format!("Rhs cannot be negative in call to operator 'h'"));
             }
-            if f as usize >= a.len() {
+            if f as usize > a.len() {
                 return Err(format!(
-                    "Float is to large compared to array in call to operator 'h'"
+                    "Rhs is to large compared to array in call to operator 'h'"
                 ));
             }
             let mut flts = vec![];
