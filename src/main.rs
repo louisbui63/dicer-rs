@@ -9,11 +9,18 @@ struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn message(&self, ctx: Context, msg: Message) {
-        let mut m = msg.content.clone();
+    async fn message(&self, ctx: Context, mut msg: Message) {
+        let inter = if msg.content.ends_with("is this true?") {
+            "!dice $1d6".to_owned()
+        } else {
+            msg.content.clone()
+        };
+
+        let mut m = inter.clone();
+        println!("{m}");
         m.truncate(6);
 
-        if msg.content == "!dice help" || msg.content == "!dicer help" {
+        if inter == "!dice help" || msg.content == "!dicer help" {
             if let Err(why) = msg.channel_id.say(&ctx.http, "Dicer is a dice roller bot designed for tabletop rpg. It is based on an innovative representation of rolls as mathematical expressions, allowing endless possibilities, end thus making it suitable no matter the rules you are using.
 !dice followed by a command outputs the result of this command.
 there also some specific commands :
@@ -22,7 +29,7 @@ there also some specific commands :
                 println!("error sending message : {:?}", why);
             }
         } else if m == "!dice " {
-            let content = &msg.content[6..];
+            let content = &inter[6..];
             let to_unwrap = crate::parser::tokenize(content.to_owned());
 
             if let Err(e) = to_unwrap.clone() {
