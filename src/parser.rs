@@ -204,6 +204,8 @@ fn get_precedence(c: char) -> usize {
         'd' => 1,
         '<' | '>' => 9,
         '=' => 10,
+        '&' => 11,
+        '|' => 12,
         '_' | 's' => 7,
         _ => unreachable!(),
     };

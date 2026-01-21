@@ -631,7 +631,7 @@ fn dice_op(first: EvArray, second: EvArray) -> Result<EvArray, String> {
             let mut out = vec![];
 
             for _ in 0..(f as usize) {
-                let n: usize = rng.gen_range(..s.len());
+                let n: usize = rng.gen_range(0..(s.len() as usize));
                 out.push(s[n].clone());
             }
 
