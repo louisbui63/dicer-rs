@@ -34,10 +34,18 @@ there also some specific commands :
                 content.push('\n');
             }
             println!("{:?}", content);
-            let to_unwrap = crate::parser::tokenize(content);
+            let to_unwrap = crate::parser::tokenize(content.clone());
 
             if let Err(e) = to_unwrap.clone() {
                 if let Err(why) = msg.channel_id.say(&ctx.http, e).await {
+                    eprintln!("error sending message : {:?}", why);
+                    return;
+                }
+                if let Err(why) = msg
+                    .channel_id
+                    .say(&ctx.http, format!("received: {content}"))
+                    .await
+                {
                     eprintln!("error sending message : {:?}", why);
                     return;
                 }
@@ -52,6 +60,22 @@ there also some specific commands :
                     eprintln!("error sending message : {:?}", why);
                     return;
                 }
+                if let Err(why) = msg
+                    .channel_id
+                    .say(&ctx.http, format!("received: {content}"))
+                    .await
+                {
+                    eprintln!("error sending message : {:?}", why);
+                    return;
+                }
+                if let Err(why) = msg
+                    .channel_id
+                    .say(&ctx.http, format!("tokenized into: {tokens:?}"))
+                    .await
+                {
+                    eprintln!("error sending message : {:?}", why);
+                    return;
+                }
             }
             let parsed = to_unwrap.unwrap();
             println!("{:?}", parsed);
@@ -61,6 +85,30 @@ there also some specific commands :
             if let Err(e) = to_unwrap.clone() {
                 if e != "" {
                     if let Err(why) = msg.channel_id.say(&ctx.http, e).await {
+                        eprintln!("error sending message : {:?}", why);
+                        return;
+                    }
+                    if let Err(why) = msg
+                        .channel_id
+                        .say(&ctx.http, format!("received: {content}"))
+                        .await
+                    {
+                        eprintln!("error sending message : {:?}", why);
+                        return;
+                    }
+                    if let Err(why) = msg
+                        .channel_id
+                        .say(&ctx.http, format!("tokenized into: {tokens:?}"))
+                        .await
+                    {
+                        eprintln!("error sending message : {:?}", why);
+                        return;
+                    }
+                    if let Err(why) = msg
+                        .channel_id
+                        .say(&ctx.http, format!("parsed as: {parsed:?}"))
+                        .await
+                    {
                         eprintln!("error sending message : {:?}", why);
                         return;
                     }
