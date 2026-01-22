@@ -171,6 +171,7 @@ fn evaluate_expr(e: Expr, mem: &HashMap<String, EvArray>) -> Result<EvArray, Str
             }
             'x' => return Ok(x_op(evaluate_expr(*first, mem)?, (*second, mem))?),
             '_' => return Ok(flatten_op(evaluate_expr(*first, mem)?)?),
+            '!' => return Ok(shallow_flatten_op(evaluate_expr(*first, mem)?)?),
             's' => return Ok(sum_op(evaluate_expr(*first, mem)?)?),
 
             e => return Err(format!("Unknown operator '{}'", e)),
@@ -249,6 +250,22 @@ fn flatten_op(operand: EvArray) -> Result<EvArray, String> {
             let mut out = vec![];
             for i in a {
                 match flatten_op(i)? {
+                    EvArray::A(a) => out.append(&mut a.clone()),
+                    f => out.push(f),
+                }
+            }
+            Ok(EvArray::A(out))
+        }
+    }
+}
+
+fn shallow_flatten_op(operand: EvArray) -> Result<EvArray, String> {
+    match operand {
+        EvArray::F(_) => Ok(operand),
+        EvArray::A(a) => {
+            let mut out = vec![];
+            for i in a {
+                match i {
                     EvArray::A(a) => out.append(&mut a.clone()),
                     f => out.push(f),
                 }

@@ -188,7 +188,7 @@ impl Array {
 fn is_operator(c: char) -> bool {
     return match c {
         'd' | '+' | '-' | '*' | '/' | '^' | '<' | '>' | '=' | '|' | '&' | '@' | 'x' | 'l' | 'h'
-        | '_' | 's' => true,
+        | '_' | 's' | '!' => true,
         _ => false,
     };
 }
@@ -206,7 +206,7 @@ fn get_precedence(c: char) -> usize {
         '=' => 10,
         '&' => 11,
         '|' => 12,
-        '_' | 's' => 7,
+        '_' | 's' | '!' => 7,
         _ => unreachable!(),
     };
 }
