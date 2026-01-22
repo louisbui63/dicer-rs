@@ -224,6 +224,7 @@ fn evaluate_expr(e: Expr, mem: &HashMap<String, EvArray>) -> Result<EvArray, Str
                 _ => Err(format!("Unknown function : '{}'", name)),
             }
         }
+        Expr::Parenthesised(e) => evaluate_expr(*e, mem),
     }
 }
 

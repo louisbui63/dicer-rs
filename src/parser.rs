@@ -33,6 +33,7 @@ pub enum Expr {
     Var(String),
     Call(String, Vec<Expr>),
     Operation(Box<Expr>, char, Box<Expr>),
+    Parenthesised(Box<Expr>),
     None,
 }
 
@@ -44,7 +45,11 @@ impl Expr {
                 *b,
                 Box::new(e.add_f(n)?),
             )),
-            Expr::Val(_) | Expr::Call(_, _) | Expr::Var(_) | Expr::Array(_) => {
+            Expr::Val(_)
+            | Expr::Call(_, _)
+            | Expr::Var(_)
+            | Expr::Array(_)
+            | Expr::Parenthesised(_) => {
                 Err(format!("Invalid token in expression : 'Number({})'", n))
             }
             Expr::None => Ok(Self::Val(n)),
@@ -57,7 +62,11 @@ impl Expr {
                 *b,
                 Box::new(e.add_call(n, args)?),
             )),
-            Expr::Val(_) | Expr::Call(_, _) | Expr::Var(_) | Expr::Array(_) => {
+            Expr::Val(_)
+            | Expr::Call(_, _)
+            | Expr::Var(_)
+            | Expr::Array(_)
+            | Expr::Parenthesised(_) => {
                 Err(format!("Invalid token in expression : 'Number({})'", n))
             }
             Expr::None => Ok(Self::Call(n, args)),
@@ -70,7 +79,11 @@ impl Expr {
                 *b,
                 Box::new(e.add_arr(a)?),
             )),
-            Expr::Val(_) | Expr::Call(_, _) | Expr::Var(_) | Expr::Array(_) => {
+            Expr::Val(_)
+            | Expr::Call(_, _)
+            | Expr::Var(_)
+            | Expr::Array(_)
+            | Expr::Parenthesised(_) => {
                 Err(format!("Invalid token in expression : 'Arr({:?})'", a))
             }
             Expr::None => Ok(Self::Array(a)),
@@ -78,8 +91,8 @@ impl Expr {
     }
     fn add_op(&self, o: char) -> Result<Expr, String> {
         match self {
-            Expr::Val(v) => Ok(Self::Operation(
-                Box::new(Self::Val(*v)),
+            Expr::Val(_) | Expr::Parenthesised(_) => Ok(Self::Operation(
+                Box::new(self.clone()),
                 o,
                 if is_unary(o) {
                     Box::new(Self::Val(0.))
@@ -144,7 +157,11 @@ impl Expr {
                 Box::new(e.add_var(v)?),
             )),
             Expr::None => Ok(Self::Var(v)),
-            Expr::Val(_) | Expr::Call(_, _) | Expr::Var(_) | Expr::Array(_) => {
+            Expr::Val(_)
+            | Expr::Call(_, _)
+            | Expr::Var(_)
+            | Expr::Array(_)
+            | Expr::Parenthesised(_) => {
                 Err(format!("Invalid token in expression : 'Variable({})'", v))
             }
         }
@@ -158,7 +175,11 @@ impl Expr {
                 Box::new(e.add_expr(i)?),
             )),
             Expr::None => Ok(i),
-            Expr::Val(_) | Expr::Call(_, _) | Expr::Var(_) | Expr::Array(_) => {
+            Expr::Val(_)
+            | Expr::Call(_, _)
+            | Expr::Var(_)
+            | Expr::Array(_)
+            | Expr::Parenthesised(_) => {
                 Err(format!("Invalid token in expression : 'Expr({:?})'", i))
             }
         }
@@ -431,7 +452,7 @@ fn parse_parenthesis(t: &Vec<Token>, i: &mut usize) -> Result<Expr, String> {
         *i += 1;
     }
 
-    return Ok(out);
+    return Ok(Expr::Parenthesised(Box::new(out)));
 }
 pub fn parse_call(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Expr>, String> {
     let mut out = vec![];
