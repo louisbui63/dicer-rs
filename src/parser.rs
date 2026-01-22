@@ -406,8 +406,6 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
         i += 1;
     }
 
-    out.push(c_token);
-
     return Ok(out);
 }
 

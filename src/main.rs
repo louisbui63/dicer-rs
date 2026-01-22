@@ -29,8 +29,12 @@ there also some specific commands :
                 println!("error sending message : {:?}", why);
             }
         } else if m == "!dice " {
-            let content = &inter[6..];
-            let to_unwrap = crate::parser::tokenize(content.to_owned());
+            let mut content = inter[6..].to_owned();
+            if !content.ends_with('\n') {
+                content.push('\n');
+            }
+            println!("{:?}", content);
+            let to_unwrap = crate::parser::tokenize(content);
 
             if let Err(e) = to_unwrap.clone() {
                 if let Err(why) = msg.channel_id.say(&ctx.http, e).await {
@@ -39,6 +43,7 @@ there also some specific commands :
                 }
             }
             let tokens = to_unwrap.unwrap();
+            println!("{:?}", tokens);
 
             let mut i = 0;
             let to_unwrap = crate::parser::parse(&tokens, &mut i);
@@ -49,6 +54,7 @@ there also some specific commands :
                 }
             }
             let parsed = to_unwrap.unwrap();
+            println!("{:?}", parsed);
 
             let to_unwrap =
                 crate::evaluator::evaluate(&parsed, &mut std::collections::HashMap::new());
@@ -61,6 +67,7 @@ there also some specific commands :
                 }
             }
             let evaluated = to_unwrap.unwrap();
+            println!("{}", evaluated);
 
             if evaluated != "" {
                 if let Err(why) = msg.channel_id.say(&ctx.http, evaluated).await {
