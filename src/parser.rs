@@ -666,13 +666,13 @@ pub fn parse(t: &Vec<Token>, i: &mut usize) -> Result<Vec<Stmt>, String> {
                     }
                 } else if let Stmt::For(None, Expr::None, None) = current_stmt.clone() {
                     current_stmt = Stmt::For(Some(v), Expr::None, None);
-                } else if let Stmt::For(Some(v), e, None) = current_stmt.clone() {
+                } else if let Stmt::For(Some(var), e, None) = current_stmt.clone() {
                     if t.len() > *i + 1 && matches!(t[*i + 1], Token::LParen) {
                         *i += 1;
                         current_stmt =
-                            Stmt::For(Some(v.clone()), e.add_call(v, parse_call(t, i)?)?, None);
+                            Stmt::For(Some(var.clone()), e.add_call(v, parse_call(t, i)?)?, None);
                     } else {
-                        current_stmt = Stmt::For(Some(v.clone()), e.add_var(v)?, None);
+                        current_stmt = Stmt::For(Some(var.clone()), e.add_var(v)?, None);
                     }
                 } else {
                     return Err("Invalid Token".to_owned());
