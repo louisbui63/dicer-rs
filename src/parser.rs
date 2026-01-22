@@ -213,7 +213,7 @@ fn get_precedence(c: char) -> usize {
 
 fn is_unary(c: char) -> bool {
     return match c {
-        '_' | 's' => true,
+        '_' | 's' | '!' => true,
         _ => false,
     };
 }
