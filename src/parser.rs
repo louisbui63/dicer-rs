@@ -90,8 +90,8 @@ impl Expr {
         }
     }
     fn add_op(&self, o: char) -> Result<Expr, String> {
-        match self {
-            Expr::Val(_) | Expr::Parenthesised(_) => Ok(Self::Operation(
+        let out = match self {
+            Expr::Val(_) | Expr::Parenthesised(_) => Self::Operation(
                 Box::new(self.clone()),
                 o,
                 if is_unary(o) {
@@ -99,16 +99,12 @@ impl Expr {
                 } else {
                     Box::new(Self::None)
                 },
-            )),
+            ),
             Expr::Operation(a, b, e) => {
                 if get_precedence(*b) > get_precedence(o) {
-                    Ok(Self::Operation(
-                        Box::new(*a.clone()),
-                        *b,
-                        Box::new(e.add_op(o)?),
-                    ))
+                    Self::Operation(Box::new(*a.clone()), *b, Box::new(e.add_op(o)?))
                 } else {
-                    Ok(Self::Operation(
+                    Self::Operation(
                         Box::new(self.clone()),
                         o,
                         if is_unary(o) {
@@ -116,11 +112,11 @@ impl Expr {
                         } else {
                             Box::new(Self::None)
                         },
-                    ))
+                    )
                 }
             }
-            Expr::None => Err(format!("Invalid token in expression : 'Operator({})'", 0)),
-            Expr::Var(v) => Ok(Self::Operation(
+            Expr::None => return Err(format!("Invalid token in expression : 'Operator({})'", 0)),
+            Expr::Var(v) => Self::Operation(
                 Box::new(Self::Var(v.clone())),
                 o,
                 if is_unary(o) {
@@ -128,8 +124,8 @@ impl Expr {
                 } else {
                     Box::new(Self::None)
                 },
-            )),
-            Expr::Array(a) => Ok(Self::Operation(
+            ),
+            Expr::Array(a) => Self::Operation(
                 Box::new(Self::Array(a.clone())),
                 o,
                 if is_unary(o) {
@@ -137,8 +133,8 @@ impl Expr {
                 } else {
                     Box::new(Self::None)
                 },
-            )),
-            Expr::Call(a, b) => Ok(Self::Operation(
+            ),
+            Expr::Call(a, b) => Self::Operation(
                 Box::new(Self::Call(a.clone(), b.clone())),
                 o,
                 if is_unary(o) {
@@ -146,7 +142,12 @@ impl Expr {
                 } else {
                     Box::new(Self::None)
                 },
-            )),
+            ),
+        };
+        if is_unary(o) {
+            Ok(Self::Parenthesised(Box::new(out)))
+        } else {
+            Ok(out)
         }
     }
     fn add_var(&self, v: String) -> Result<Expr, String> {
