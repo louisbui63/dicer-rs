@@ -334,7 +334,7 @@ pub fn tokenize(s: String) -> Result<Vec<Token>, ParseFloatError> {
                 }
                 c_token = Token::Comma;
             }
-            ' ' | ';' => {}
+            ' ' | ';' | '\r' | '\n' | '\t' => {}
             '$' => {
                 if Token::None != c_token {
                     out.push(c_token);
