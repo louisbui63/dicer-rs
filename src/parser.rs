@@ -102,7 +102,11 @@ impl Expr {
             ),
             Expr::Operation(a, b, e) => {
                 if get_precedence(*b) > get_precedence(o) {
-                    Self::Operation(Box::new(*a.clone()), *b, Box::new(e.add_op(o)?))
+                    return Ok(Self::Operation(
+                        Box::new(*a.clone()),
+                        *b,
+                        Box::new(e.add_op(o)?),
+                    ));
                 } else {
                     Self::Operation(
                         Box::new(self.clone()),
