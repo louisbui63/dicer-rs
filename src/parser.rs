@@ -258,6 +258,12 @@ fn tokenize_string(chars: Vec<char>, i: &mut usize) -> Vec<Token> {
             } else if c == '"' {
                 out.push(Token::Number('"' as u32 as f64));
                 out.push(Token::Comma);
+            } else if c == 'n' {
+                out.push(Token::Number('\n' as u32 as f64));
+                out.push(Token::Comma);
+            } else if c == 't' {
+                out.push(Token::Number('\t' as u32 as f64));
+                out.push(Token::Comma);
             }
             escape = false;
         } else if c == '\\' {
